@@ -1,1 +1,706 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CARLO STUDIO - Media Hub V11 (Cinematic FX & 520p 25fps)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --carlo-blue: #00205B;
+            --carlo-dark: #0a0a0a;
+            --neon-cyan: #00e5ff;
+            --timeline-bg: #1a1a1a;
+        }
+        body {
+            background-color: var(--carlo-dark);
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .glass-card {
+            background: rgba(17, 17, 17, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 229, 255, 0.1);
+        }
+        .search-input {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: white;
+            transition: all 0.3s ease;
+            font-family: monospace;
+        }
+        .search-input:focus {
+            border-color: var(--neon-cyan);
+            outline: none;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+        }
+        .timeline-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: var(--neon-cyan) var(--timeline-bg);
+        }
+        .timeline-clip {
+            min-width: 160px;
+            height: 90px;
+            background-color: #222;
+            border-right: 2px solid #000;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s;
+            overflow: hidden;
+            border-radius: 6px;
+        }
+        .timeline-clip.active {
+            border: 2px solid #ff0055;
+            box-shadow: 0 0 10px rgba(255, 0, 85, 0.5);
+        }
+        .custom-player-controls {
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+        }
+        .progress-container {
+            width: 100%;
+            height: 8px;
+            background: #444;
+            border-radius: 4px;
+            cursor: pointer;
+            position: relative;
+        }
+        .progress-bar {
+            height: 100%;
+            background: var(--neon-cyan);
+            border-radius: 4px;
+            width: 0%;
+            pointer-events: none;
+            transition: width 0.1s linear;
+        }
+        .render-btn {
+            background: rgba(0, 229, 255, 0.2);
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .render-btn:hover {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+        }
+        .render-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
 
+    <header class="text-center mb-10">
+        <h1 class="text-4xl font-black tracking-tighter text-white">CARLO <span class="text-[#00e5ff]">STUDIO</span></h1>
+        <p class="text-xs text-gray-500 mt-2 uppercase tracking-widest font-mono">Cinematic FX Engine V11 (Strictly 520p 25fps)</p>
+    </header>
+
+    <section class="glass-card p-6 rounded-2xl mb-8 border-t-4 border-t-[#00e5ff]">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <div class="lg:col-span-1 flex flex-col">
+                <h3 class="text-sm font-bold text-[#00e5ff] mb-2">📝 صندوق الأوامر (Script)</h3>
+                <textarea id="scriptInput" class="search-input w-full flex-grow p-4 rounded-xl text-sm leading-relaxed" 
+                          placeholder="مثال:&#10;S7 -> video game (C.blue) 0:45 - 0:52 -> transition -> fast slide right&#10;image : man surprised 2 - 3s - bw ken burns - glitch" dir="ltr"></textarea>
+                <button id="buildTimelineBtn" class="mt-4 bg-[#00205B] text-white px-4 py-3 rounded-xl font-bold border border-[#00e5ff] hover:bg-[#003399] transition-all">
+                    ⚙️ بناء المونتاج الآلي
+                </button>
+            </div>
+
+            <div class="lg:col-span-2">
+                <h3 class="text-sm font-bold text-gray-400 mb-2">🖥️ شاشة المونتاج (Canvas Engine)</h3>
+                <div class="relative w-full aspect-video bg-black rounded-xl border-2 border-[#333] overflow-hidden shadow-[0_0_20px_rgba(0,0,0,0.8)] flex flex-col items-center justify-center group">
+                    
+                    <canvas id="mainCanvas" class="w-full h-full object-cover hidden" width="924" height="520"></canvas>
+                    
+                    <div id="monitorPlaceholder" class="text-gray-600 flex flex-col items-center">
+                        <span class="text-4xl mb-2">🎬</span>
+                        <span>CARLO FX ENGINE</span>
+                    </div>
+                    
+                    <div id="customControls" class="absolute bottom-0 left-0 w-full p-4 custom-player-controls hidden flex-col gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div class="progress-container" id="progressContainer">
+                            <div class="progress-bar" id="progressBar"></div>
+                        </div>
+                        <div class="flex justify-between items-center px-1">
+                            <div class="flex items-center gap-4">
+                                <button id="playPauseBtn" class="text-white text-xl hover:text-[#00e5ff] transition w-6">▶️</button>
+                                <span id="timeDisplay" class="text-white text-sm font-mono tracking-wider">00:00 / 00:00</span>
+                            </div>
+                            <button id="renderExportBtn" class="render-btn">
+                                📥 تصدير الفيديو المدمج
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="absolute top-2 right-2 bg-[#ff0055]/80 px-2 py-1 rounded text-[10px] font-bold text-white tracking-widest z-10 pointer-events-none" id="effectBadge" style="display:none;">FX: NONE</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 bg-[#111] p-4 rounded-xl border border-[#333]">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-xs text-gray-400 font-mono">TIMELINE TRACK</span>
+                <span id="timelineStatus" class="text-xs text-[#00e5ff]"></span>
+            </div>
+            <div id="timelineTrack" class="flex gap-1 overflow-x-auto pb-2 timeline-scroll min-h-[90px] items-center">
+                <div class="text-gray-600 text-sm italic w-full text-center">التايم لاين فارغ. أدخل الأوامر واضغط "بناء المونتاج الآلي".</div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        class CarloMediaHub {
+            constructor() {
+                this.pexelsKey = 'uW7ydJoYyczVIEEbvtBCANapzxr9V1ZtiJpYILg1rW1cTsgCAyxwInjM';
+                
+                this.scriptInput = document.getElementById('scriptInput');
+                this.buildBtn = document.getElementById('buildTimelineBtn');
+                
+                // إضافة willReadFrequently لتفادي تحذيرات الكونسول وتحسين الأداء
+                this.canvas = document.getElementById('mainCanvas');
+                this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+                
+                this.lastFrameCanvas = document.createElement('canvas');
+                this.lastFrameCanvas.width = 924;
+                this.lastFrameCanvas.height = 520;
+                this.lastCtx = this.lastFrameCanvas.getContext('2d', { willReadFrequently: true });
+
+                this.monitorPlaceholder = document.getElementById('monitorPlaceholder');
+                this.customControls = document.getElementById('customControls');
+                this.playPauseBtn = document.getElementById('playPauseBtn');
+                this.progressContainer = document.getElementById('progressContainer');
+                this.progressBar = document.getElementById('progressBar');
+                this.timeDisplay = document.getElementById('timeDisplay');
+                this.renderExportBtn = document.getElementById('renderExportBtn');
+                this.effectBadge = document.getElementById('effectBadge');
+                
+                this.timelineTrack = document.getElementById('timelineTrack');
+                this.timelineStatus = document.getElementById('timelineStatus');
+
+                this.timelineClips = []; 
+                this.currentClipIndex = 0;
+                this.totalTimelineDuration = 0; 
+                this.accumulatedTime = 0; 
+                this.isPlaying = false;
+                
+                this.isRendering = false;
+                this.mediaRecorder = null;
+                this.recordedChunks = [];
+                
+                this.animationId = null;
+                this.clipStartMs = 0;
+                this.pausedTimeInsideClip = 0;
+
+                this.bindEvents();
+                this.startEngineLoop(); 
+            }
+
+            bindEvents() {
+                this.buildBtn.addEventListener('click', () => this.buildTimeline());
+                this.playPauseBtn.addEventListener('click', () => this.togglePlayPause());
+                this.canvas.addEventListener('click', () => this.togglePlayPause());
+                this.progressContainer.addEventListener('click', (e) => this.scrubTimeline(e));
+                
+                this.renderExportBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!this.isRendering) this.startLiveRendering();
+                });
+            }
+
+            parseTime(timeStr) {
+                if (!timeStr) return 3;
+                timeStr = timeStr.replace(/s$/i, '').trim();
+                if (timeStr.includes(':')) {
+                    const parts = timeStr.split(':');
+                    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+                }
+                return parseFloat(timeStr) || 3;
+            }
+
+            formatTime(seconds) {
+                if (isNaN(seconds) || seconds < 0) return "00:00";
+                const m = Math.floor(seconds / 60);
+                const s = Math.floor(seconds % 60);
+                return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            }
+
+            async loadImage(url) {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    this.ctx.imageSmoothingEnabled = true;
+                    this.ctx.imageSmoothingQuality = 'high';
+                    img.onload = () => resolve(img);
+                    img.onerror = () => resolve(null); // تفادي انهيار الكود إذا فشلت الصورة
+                    img.src = url;
+                });
+            }
+
+            async loadVideo(url) {
+                return new Promise((resolve) => {
+                    const vidEl = document.createElement('video');
+                    vidEl.crossOrigin = 'anonymous';
+                    vidEl.src = url;
+                    vidEl.preload = 'auto'; 
+                    vidEl.muted = true;
+                    vidEl.loop = true;      
+                    vidEl.playsInline = true;
+                    vidEl.oncanplay = () => resolve(vidEl);
+                    vidEl.onerror = () => resolve(vidEl); 
+                    vidEl.load();
+                    setTimeout(() => resolve(vidEl), 3000);
+                });
+            }
+
+            getOptimalVideoUrl(videoFiles) {
+                let sorted = videoFiles.sort((a, b) => (b.width * b.height) - (a.width * a.height));
+                let optimal = sorted.find(f => f.quality === 'hd' || f.quality === 'fhd');
+                return optimal ? optimal.link : sorted[0].link;
+            }
+
+            async buildTimeline() {
+                const lines = this.scriptInput.value.trim().split('\n').filter(l => l.trim() !== '');
+                if (lines.length === 0) return alert("الرجاء كتابة أوامر!");
+
+                if (this.timelineClips.length > 0 && this.timelineClips[this.currentClipIndex] && this.timelineClips[this.currentClipIndex].type === 'video') {
+                    this.timelineClips[this.currentClipIndex].mediaObj.pause();
+                }
+
+                this.timelineTrack.innerHTML = '';
+                this.timelineStatus.innerText = "جاري سحب وتجهيز المقاطع (Preloading)... ⏳";
+                this.buildBtn.disabled = true;
+                
+                this.timelineClips = [];
+                this.totalTimelineDuration = 0;
+                this.pauseEngine();
+
+                for (let i = 0; i < lines.length; i++) {
+                    let line = lines[i].trim();
+                    if (line === '') continue;
+
+                    // ⚡ نظام الاعتراض الذكي للفيديو المحلي (Clustertruck) بالثواني المحددة
+                    if (line.toLowerCase().includes('video game (c.blue)')) {
+                        let actualQuery = 'Clustertruck_blue.mp4';
+                        let startTime = 45; // يبدأ من الثانية 45
+                        let durationSec = 7; // المدة 7 ثواني (إلى 52)
+                        let effect = 'none';
+                        let transition = 'none';
+                        
+                        let lowerLine = line.toLowerCase();
+                        
+                        // قراءة التأثير الانتقالي من السطر المخصص (سواء استعمل أسهم أو فواصل)
+                        if (lowerLine.includes('->')) {
+                            let arrowParts = lowerLine.split('->').map(p=>p.trim());
+                            if (arrowParts.length > 3) transition = arrowParts[3];
+                        } else if (lowerLine.includes('-')) {
+                            let parts = lowerLine.split('-').map(p=>p.trim());
+                            if (parts.length > 3) transition = parts[3];
+                        }
+
+                        try {
+                            const vidObj = await this.loadVideo(actualQuery);
+                            this.timelineClips.push({
+                                id: `clip_${i}`, type: 'video', term: 'C.Blue (0:45-0:52)', preview: 'https://via.placeholder.com/150/000000/FFFFFF?text=Local+Game',
+                                duration: durationSec, effect: effect, transition: transition,
+                                mediaObj: vidObj, startTime: startTime // تمرير نقطة البداية للمشغل
+                            });
+                            this.totalTimelineDuration += durationSec;
+                        } catch(err) { console.error(err); }
+                        continue; // تجاوز المعالجة العادية لهذا السطر
+                    }
+
+                    // المعالجة العادية لباقي الأوامر
+                    let type = 'video';
+                    let termRaw = '';
+                    let colonIdx = line.indexOf(':');
+                    if (colonIdx === -1) continue;
+                    
+                    let typeRaw = line.substring(0, colonIdx).trim().toLowerCase();
+                    if (typeRaw.includes('image') || typeRaw.includes('picture')) type = 'image';
+                    else type = 'video';
+
+                    let rightSide = line.substring(colonIdx + 1).trim();
+                    let parts = rightSide.split('-').map(p => p.trim().toLowerCase());
+                    
+                    termRaw = parts[0].trim();
+                    let durationSec = parts.length > 1 ? this.parseTime(parts[1]) : 3;
+                    let effect = parts.length > 2 ? parts[2] : 'none';
+                    let transition = parts.length > 3 ? parts[3] : 'none';
+
+                    try {
+                        let actualQuery = termRaw;
+                        let targetIndex = 1; 
+                        
+                        const indexMatch = termRaw.match(/(.+?)\s+(\d+)$/);
+                        if (indexMatch) {
+                            actualQuery = indexMatch[1].trim();          
+                            targetIndex = parseInt(indexMatch[2], 10);    
+                        }
+
+                        let page = Math.ceil(targetIndex / 50);
+                        let indexInPage = (targetIndex - 1) % 50;
+
+                        if (type === 'image') {
+                            const resp = await fetch(`https://api.pexels.com/v1/search?query=${actualQuery}&per_page=50&page=${page}&orientation=landscape`, { headers: { 'Authorization': this.pexelsKey } });
+                            const data = await resp.json();
+                            if (data.photos && data.photos.length > indexInPage) {
+                                const photo = data.photos[indexInPage];
+                                const photoUrl = photo.src.original || photo.src.large2x;
+                                const imgObj = await this.loadImage(photoUrl);
+                                
+                                if(imgObj) {
+                                    this.timelineClips.push({
+                                        id: `clip_${i}`, type: 'image', term: termRaw, preview: photo.src.small,
+                                        duration: durationSec, effect: effect, transition: transition,
+                                        mediaObj: imgObj, startTime: 0
+                                    });
+                                    this.totalTimelineDuration += durationSec;
+                                }
+                            }
+                        } else {
+                            if (actualQuery.includes('.mp4') || actualQuery.includes('.webm')) {
+                                const vidObj = await this.loadVideo(actualQuery);
+                                this.timelineClips.push({
+                                    id: `clip_${i}`, type: 'video', term: actualQuery, preview: 'https://via.placeholder.com/150/000000/FFFFFF?text=Local+Video',
+                                    duration: durationSec, effect: effect, transition: transition,
+                                    mediaObj: vidObj, startTime: 0
+                                });
+                                this.totalTimelineDuration += durationSec;
+                            } else {
+                                const resp = await fetch(`https://api.pexels.com/videos/search?query=${actualQuery}&per_page=50&page=${page}&orientation=landscape`, { headers: { 'Authorization': this.pexelsKey } });
+                                const data = await resp.json();
+                                if (data.videos && data.videos.length > indexInPage) {
+                                    const v = data.videos[indexInPage];
+                                    const url = this.getOptimalVideoUrl(v.video_files);
+                                    const vidObj = await this.loadVideo(url);
+                                    
+                                    this.timelineClips.push({
+                                        id: `clip_${i}`, type: 'video', term: termRaw, preview: v.image,
+                                        duration: durationSec, effect: effect, transition: transition,
+                                        mediaObj: vidObj, startTime: 0
+                                    });
+                                    this.totalTimelineDuration += durationSec;
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`خطأ في استدعاء ${termRaw}:`, err);
+                    }
+                }
+
+                this.renderTimelineUI();
+                this.timelineStatus.innerText = `✅ جاهز | المدة: ${this.formatTime(this.totalTimelineDuration)}`;
+                this.buildBtn.disabled = false;
+            }
+
+            renderTimelineUI() {
+                this.timelineTrack.innerHTML = ''; 
+                if (this.timelineClips.length === 0) return;
+
+                this.timelineClips.forEach((clip, index) => {
+                    const clipDiv = document.createElement('div');
+                    clipDiv.className = 'timeline-clip flex-shrink-0';
+                    clipDiv.id = clip.id;
+                    const badgeColor = clip.type === 'image' ? 'bg-[#00e5ff]' : 'bg-[#ff0055]';
+                    clipDiv.innerHTML = `
+                        <img src="${clip.preview}" class="w-full h-full object-cover opacity-50">
+                        <div class="absolute top-1 left-1 bg-black/80 px-1 rounded text-[10px] text-white">${clip.term}</div>
+                        <div class="absolute top-1 right-1 ${badgeColor} text-black font-bold px-1 rounded text-[10px]">${clip.type.toUpperCase()}</div>
+                        <div class="absolute bottom-1 right-1 bg-black/80 px-1 rounded text-[10px] text-white font-bold">${clip.duration}s</div>
+                    `;
+                    clipDiv.addEventListener('click', () => {
+                        if (this.isRendering) return; 
+                        let accTime = 0;
+                        for(let i=0; i<index; i++) accTime += this.timelineClips[i].duration;
+                        this.playClip(index, 0, accTime);
+                    });
+                    this.timelineTrack.appendChild(clipDiv);
+                });
+
+                this.monitorPlaceholder.style.display = 'none';
+                this.canvas.style.display = 'block';
+                this.customControls.classList.remove('hidden');
+                this.customControls.classList.add('flex');
+                
+                this.playClip(0, 0, 0);
+            }
+
+            startEngineLoop() {
+                const loop = () => {
+                    this.renderCanvasFrame();
+                    this.animationId = requestAnimationFrame(loop);
+                };
+                loop();
+            }
+
+            pauseEngine() {
+                this.isPlaying = false;
+                this.playPauseBtn.innerText = "▶️";
+                if (this.timelineClips.length > 0) {
+                    const clip = this.timelineClips[this.currentClipIndex];
+                    if (clip && clip.type === 'video' && clip.mediaObj) {
+                        clip.mediaObj.pause();
+                    }
+                }
+            }
+
+            playClip(index, timeInsideClip = 0, accTime = 0) {
+                if (this.timelineClips[this.currentClipIndex] && this.timelineClips[this.currentClipIndex].type === 'video') {
+                    this.timelineClips[this.currentClipIndex].mediaObj.pause();
+                }
+
+                if (this.timelineClips.length > 0) {
+                    this.lastCtx.drawImage(this.canvas, 0, 0, this.lastFrameCanvas.width, this.lastFrameCanvas.height);
+                }
+
+                this.currentClipIndex = index;
+                this.accumulatedTime = accTime;
+                const clip = this.timelineClips[index];
+                
+                if (!clip) return;
+
+                document.querySelectorAll('.timeline-clip').forEach(el => el.classList.remove('active'));
+                const activeEl = document.getElementById(clip.id);
+                if (activeEl) {
+                    activeEl.classList.add('active');
+                    activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+
+                this.effectBadge.style.display = 'block';
+                this.effectBadge.innerText = `FX: ${clip.effect.toUpperCase()} | TR: ${clip.transition.toUpperCase()}`;
+
+                this.clipStartMs = performance.now() - (timeInsideClip * 1000);
+                this.isPlaying = true;
+                this.playPauseBtn.innerText = "⏸️";
+
+                // ⚡ تحديث ذكي: تمرير الفيديو إلى نقطة البداية المحددة
+                if (clip.type === 'video') {
+                    clip.mediaObj.currentTime = (clip.startTime || 0) + timeInsideClip;
+                    clip.mediaObj.play().catch(e => console.log("Play interrupted", e));
+                }
+            }
+
+            togglePlayPause() {
+                if (!this.timelineClips.length || this.isRendering) return;
+                const clip = this.timelineClips[this.currentClipIndex];
+                
+                if (this.isPlaying) {
+                    this.pauseEngine();
+                    this.pausedTimeInsideClip = (performance.now() - this.clipStartMs) / 1000;
+                } else {
+                    if (clip.type === 'video' && clip.mediaObj) clip.mediaObj.play().catch(e => console.log(e));
+                    this.clipStartMs = performance.now() - (this.pausedTimeInsideClip * 1000);
+                    this.isPlaying = true;
+                    this.playPauseBtn.innerText = "⏸️";
+                }
+            }
+
+            applyMediaFX(mediaObj, effect, progress, type) {
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+                const ctx = this.ctx;
+                
+                ctx.save();
+                
+                let mw = type === 'video' ? (mediaObj.videoWidth || w) : mediaObj.width;
+                let mh = type === 'video' ? (mediaObj.videoHeight || h) : mediaObj.height;
+                
+                const imgAspect = mw / mh;
+                const canvasAspect = w / h;
+                let drawW = w, drawH = h;
+                if (imgAspect > canvasAspect) drawW = h * imgAspect;
+                else drawH = w / imgAspect;
+
+                let scale = 1, dx = 0, dy = 0;
+                let filterString = '';
+
+                if (effect.includes('bw ken burns')) filterString += 'grayscale(100%) contrast(110%) ';
+                if (effect.includes('darken')) filterString += 'brightness(85%) ';
+                if (effect.includes('blur')) filterString += `blur(${progress * 15}px) `;
+                ctx.filter = filterString.trim() !== '' ? filterString : 'none';
+
+                if(effect.includes('pan') || effect.includes('shake') || effect.includes('drift')) scale = 1.3;
+                if(effect.includes('burns') || effect.includes('parallax')) scale = 1.3;
+
+                if(effect.includes('average speed zoom in') || effect === 'zoom in') scale *= (1 + 0.15 * progress);
+                else if(effect.includes('average zoom out') || effect === 'zoom out') scale *= (1.15 - 0.15 * progress);
+                else if(effect.includes('fast zoom in')) scale *= (1 + 0.4 * progress);
+                else if(effect.includes('fast zoom out')) scale *= (1.4 - 0.4 * progress);
+                else if(effect.includes('pulse zoom')) scale *= (1 + Math.abs(Math.sin(progress * Math.PI * 6)) * 0.15);
+                
+                let panSpeed = effect.includes('fast') ? 100 : 30;
+                if(effect.includes('pan left')) dx = (panSpeed) - (panSpeed * 2 * progress);
+                if(effect.includes('pan right')) dx = (-panSpeed) + (panSpeed * 2 * progress);
+                if(effect.includes('pan up')) dy = (panSpeed) - (panSpeed * 2 * progress);
+                if(effect.includes('pan down')) dy = (-panSpeed) + (panSpeed * 2 * progress);
+                if(effect.includes('diagonal pan')) { dx = (panSpeed) - (panSpeed * 2 * progress); dy = (panSpeed) - (panSpeed * 2 * progress); }
+                
+                if(effect.includes('ken burns effect') || effect.includes('parallax zoom') || effect.includes('bw ken burns')) {
+                    scale *= (1.1 + 0.1 * progress); 
+                    dx = (w * 0.05) - (w * 0.1 * progress); 
+                    dy = (h * 0.03) - (h * 0.06 * progress);
+                }
+                
+                if(effect.includes('slow drift')) { dx = Math.sin(progress * Math.PI) * 20; dy = Math.cos(progress * Math.PI) * 10; }
+                if(effect.includes('floating motion') || effect.includes('float') || effect.includes('hovering')) { 
+                    dy += Math.sin(progress * Math.PI * 4) * 15; 
+                    dx += Math.cos(progress * Math.PI * 2) * 5; 
+                }
+                
+                if(effect.includes('subtle shake') || effect.includes('camera shake')) { dx += (Math.random() - 0.5) * 4; dy += (Math.random() - 0.5) * 4; }
+                if(effect.includes('micro shake')) { dx += (Math.random() - 0.5) * 2; dy += (Math.random() - 0.5) * 2; }
+
+                ctx.translate(w/2 + dx, h/2 + dy);
+                ctx.scale(scale, scale);
+                
+                if(type === 'video' && mediaObj.readyState < 2) {
+                    ctx.drawImage(this.lastFrameCanvas, -w/2, -h/2, w, h);
+                } else {
+                    ctx.drawImage(mediaObj, -drawW/2, -drawH/2, drawW, drawH);
+                }
+                
+                if (effect.includes('vhs') || effect.includes('film burn')) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+                    for (let i = 0; i < h; i += 6) { ctx.fillRect(-w/2, -h/2 + i, w, 2); }
+                    if(Math.random() > 0.8) { ctx.fillStyle = 'rgba(255, 100, 0, 0.05)'; ctx.fillRect(-w/2, -h/2, w, h); }
+                }
+
+                ctx.restore();
+            }
+
+            renderCanvasFrame() {
+                if (!this.timelineClips.length) return;
+                
+                const clip = this.timelineClips[this.currentClipIndex];
+                let timePlayedInClip = 0;
+
+                if (this.isPlaying || this.isRendering) {
+                    timePlayedInClip = (performance.now() - this.clipStartMs) / 1000;
+                    this.pausedTimeInsideClip = timePlayedInClip; 
+                } else {
+                    timePlayedInClip = this.pausedTimeInsideClip;
+                }
+
+                const globalTime = this.accumulatedTime + timePlayedInClip;
+                this.progressBar.style.width = `${Math.min((globalTime / this.totalTimelineDuration) * 100, 100)}%`;
+                this.timeDisplay.innerText = `${this.formatTime(globalTime)} / ${this.formatTime(this.totalTimelineDuration)}`;
+
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+                const ctx = this.ctx;
+
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, w, h);
+
+                const prevClip = this.currentClipIndex > 0 ? this.timelineClips[this.currentClipIndex - 1] : null;
+                const transIn = prevClip ? prevClip.transition : 'none';
+                
+                let transDuration = 0.5;
+                if(transIn.includes('fast') || transIn.includes('quick') || transIn.includes('jump') || transIn.includes('cut')) transDuration = 0.2;
+                if(transIn.includes('speed ramp')) transDuration = 0.8;
+                
+                let isTransitioning = (timePlayedInClip < transDuration && transIn !== 'none' && transIn !== 'hard cut' && transIn !== 'match cut' && this.currentClipIndex > 0);
+                let progress = Math.max(0, Math.min(1, timePlayedInClip / clip.duration));
+
+                if (isTransitioning) {
+                    let ease = timePlayedInClip / transDuration;
+
+                    if (transIn.includes('fade out') || transIn.includes('fade to black') || transIn.includes('black flash')) {
+                        ctx.drawImage(this.lastFrameCanvas, 0, 0, w, h);
+                        ctx.fillStyle = `rgba(0,0,0,${ease < 0.5 ? ease*2 : 1})`; ctx.fillRect(0, 0, w, h);
+                        if(ease >= 0.5) { ctx.globalAlpha = (ease-0.5)*2; this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type); ctx.globalAlpha = 1; }
+                    }
+                    else if (transIn.includes('fade to white') || transIn.includes('white flash') || transIn.includes('flash cut') || transIn.includes('flash fog')) {
+                        ctx.drawImage(this.lastFrameCanvas, 0, 0, w, h);
+                        let flashColor = transIn.includes('flash fog') ? 'rgba(200,200,220,' : 'rgba(255,255,255,';
+                        ctx.fillStyle = `${flashColor}${ease < 0.5 ? ease*2 : 1})`; ctx.fillRect(0, 0, w, h);
+                        if(ease >= 0.5) { ctx.globalAlpha = (ease-0.5)*2; this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type); ctx.globalAlpha = 1; }
+                    }
+                    else if (transIn.includes('cross dissolve') || transIn.includes('smooth fade') || transIn.includes('luma fade') || transIn.includes('ink spread transition')) {
+                        ctx.drawImage(this.lastFrameCanvas, 0, 0, w, h);
+                        ctx.globalAlpha = ease; this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type); ctx.globalAlpha = 1.0;
+                    }
+                    else if (transIn.includes('blur dissolve') || transIn.includes('motion blur transition') || transIn.includes('gaussian blur transition')) {
+                        ctx.filter = `blur(${Math.sin(ease * Math.PI) * 20}px)`;
+                        ctx.drawImage(this.lastFrameCanvas, 0, 0, w, h);
+                        ctx.globalAlpha = ease; this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type); 
+                        ctx.globalAlpha = 1.0; ctx.filter = 'none';
+                    }
+                    else if (transIn.includes('zoom in transition') || transIn.includes('zoom through')) {
+                        ctx.save(); ctx.translate(w/2, h/2); ctx.scale(1+(ease*3), 1+(ease*3)); ctx.globalAlpha = 1-ease;
+                        ctx.drawImage(this.lastFrameCanvas, -w/2, -h/2, w, h); ctx.restore();
+                        ctx.globalAlpha = ease; this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type); ctx.globalAlpha = 1;
+                    }
+                    else if (transIn.includes('zoom out transition')) {
+                        ctx.save(); ctx.translate(w/2, h/2); ctx.scale(1-(ease*0.5), 1-(ease*0.5)); ctx.globalAlpha = 1-ease;
+                        ctx.drawImage(this.lastFrameCanvas, -w/2, -h/2, w, h); ctx.restore();
+                        ctx.save(); ctx.translate(w/2, h/2); ctx.scale(2 - ease, 2 - ease); ctx.globalAlpha = ease;
+                        ctx.translate(-w/2, -h/2); this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type); ctx.restore(); ctx.globalAlpha = 1;
+                    }
+                    else if (transIn.includes('spin transition') || transIn.includes('rotate transition') || transIn.includes('whip pan')) {
+                        ctx.save(); ctx.translate(w/2, h/2); ctx.rotate((1-ease)*Math.PI); ctx.globalAlpha = 1-ease;
+                        ctx.drawImage(this.lastFrameCanvas, -w/2, -h/2, w, h); ctx.restore();
+                        ctx.save(); ctx.translate(w/2, h/2); ctx.rotate(-Math.PI + (ease*Math.PI)); ctx.globalAlpha = ease;
+                        ctx.translate(-w/2, -h/2); this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type); ctx.restore(); ctx.globalAlpha = 1;
+                    }
+                    else if (transIn.includes('circle wipe') || transIn.includes('radial wipe')) {
+                        ctx.drawImage(this.lastFrameCanvas, 0, 0, w, h);
+                        ctx.save(); ctx.beginPath(); ctx.arc(w/2, h/2, Math.max(w,h) * ease, 0, Math.PI*2); ctx.clip();
+                        this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type); ctx.restore();
+                    }
+                    else if (transIn.includes('left') || transIn.includes('right') || transIn.includes('up') || transIn.includes('down')) {
+                        let e2 = Math.pow(ease, 2); let ox=0, oy=0, nx=0, ny=0;
+                        if(transIn.includes('left')){ ox = -w*e2; nx = w*(1-e2); }
+                        else if(transIn.includes('right')){ ox = w*e2; nx = -w*(1-e2); }
+                        else if(transIn.includes('up')){ oy = -h*e2; ny = h*(1-e2); }
+                        else if(transIn.includes('down')){ oy = h*e2; ny = -h*(1-e2); }
+                        
+                        if(transIn.includes('push') || transIn.includes('slide')) ctx.drawImage(this.lastFrameCanvas, ox, oy, w, h);
+                        else ctx.drawImage(this.lastFrameCanvas, 0, 0, w, h); 
+                        
+                        ctx.save(); ctx.translate(nx, ny); this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type); ctx.restore();
+                    }
+                    else if (transIn.includes('glitch') || transIn.includes('digital distortion')) {
+                        if (Math.random() > 0.4) {
+                            for(let i=0; i<8; i++){ 
+                                let sy=Math.random()*h, sh=Math.random()*(h/4), dx=(Math.random()-0.5)*100;
+                                ctx.drawImage(this.lastFrameCanvas, 0, sy, w, sh, dx, sy, w, sh); 
+                            }
+                        } else { ctx.drawImage(this.lastFrameCanvas, 0, 0, w, h); }
+                        ctx.globalAlpha = ease; this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type); ctx.globalAlpha = 1;
+                    }
+                    else if (transIn.includes('rgb split')) {
+                        ctx.drawImage(this.lastFrameCanvas, 0, 0, w, h);
+                        ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = Math.sin(ease*Math.PI);
+                        ctx.save(); ctx.translate(-20 * Math.sin(ease*Math.PI), 0); ctx.fillStyle='rgba(255,0,0,0.5)'; ctx.fillRect(0,0,w,h); this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type); ctx.restore();
+                        ctx.save(); ctx.translate(20 * Math.sin(ease*Math.PI), 0); ctx.fillStyle='rgba(0,255,255,0.5)'; ctx.fillRect(0,0,w,h); this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type); ctx.restore();
+                        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+                    }
+                    else if (transIn.includes('shake transition')) {
+                        ctx.save(); ctx.translate((Math.random()-0.5)*40, (Math.random()-0.5)*40); ctx.drawImage(this.lastFrameCanvas, 0, 0, w, h); ctx.restore();
+                        ctx.globalAlpha = ease; this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type); ctx.globalAlpha = 1;
+                    }
+                    else if (transIn.includes('light leak transition') || transIn.includes('light leak')) {
+                        ctx.drawImage(this.lastFrameCanvas, 0, 0, w, h);
+                        ctx.globalAlpha = ease; this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type);
+                        ctx.globalAlpha = Math.sin(ease * Math.PI);
+                        let grd = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, w);
+                        grd.addColorStop(0, 'rgba(255,200,0,0.8)'); grd.addColorStop(1, 'transparent');
+                        ctx.fillStyle = grd; ctx.fillRect(0, 0, w, h); ctx.globalAlpha = 1;
+                    }
+                    else {
+                        this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type);
+                    }
+                } else {
+                    this.applyMediaFX(clip.mediaObj, clip.effect, progress, clip.type);
+                }
+
+                if ((this.isPlaying || this.isRendering) && timePlayedInClip >= clip.duration) 
